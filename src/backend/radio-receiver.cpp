@@ -69,13 +69,15 @@ RadioReceiver::RadioReceiver(
                 RadioReceiverOptions rro,
                 int transmission_mode) :
     params(transmission_mode),
+    qiProcessor(rci, params),
     mscHandler(params, false),
-    ficHandler(rci),
+    ficHandler(rci, qiProcessor),
     ofdmProcessor(input,
         params,
         rci,
         mscHandler,
         ficHandler,
+        qiProcessor,
         rro)
 { }
 

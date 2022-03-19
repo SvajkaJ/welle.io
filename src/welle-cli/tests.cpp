@@ -132,9 +132,18 @@ class TestRadioInterface : public RadioControllerInterface {
             }
         }
 
-        virtual void onSNR(float snr) override { (void)snr; }
+        virtual void onSNR(float snr) override { }
+        virtual void onBER(float ber) override { }
+        virtual void onPower(float power) override { }
+        virtual void onFIBER(float fiber) override { }
+        virtual dab_quality_indicators_t getQI(void) override 
+        {
+            dab_quality_indicators_t qi;
+            return qi;
+        }
+
         virtual void onFrequencyCorrectorChange(int fine, int coarse) override { (void)fine; (void)coarse; }
-        virtual void onSyncChange(char isSync) override
+        virtual void onSyncChange(bool isSync) override
         {
             if (isSync) {
                 num_syncs++;
@@ -357,7 +366,7 @@ void Tests::test_multipath(int test_id)
         fprintf(fd, "fname,ofdmthreshold,with_coarse,num_syncs,num_desyncs,time_to_first_sync,frameerrors,aacerrors,rserrors\n");
     }
 
-    fprintf(fd, "%s,%s,%d,%zu,%zu,%ld,%d,%d,%d\n",
+    fprintf(fd, "%s,%s,%d,%zu,%zu,%lld,%d,%d,%d\n",
             intf.getFileName().c_str(),
             fftPlacementMethodToString(rro.fftPlacementMethod),
             rro.disableCoarseCorrector ? 0 : 1,

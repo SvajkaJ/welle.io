@@ -57,6 +57,7 @@ OFDMProcessor::OFDMProcessor(
         RadioControllerInterface& ri,
         MscHandler& msc,
         FicHandler& fic,
+        QIProcessor& qiProcessor,
         RadioReceiverOptions rro) :
     receiver_options(rro),
     radioInterface(ri),
@@ -64,13 +65,10 @@ OFDMProcessor::OFDMProcessor(
     params(params),
     ficHandler(fic),
     tiiDecoder(params, ri),
-    T_null(params.T_null),
     T_u(params.T_u),
-    T_s(params.T_s),
-    T_F(params.T_F),
     oscillatorTable(INPUT_RATE),
     phaseRef(params, rro.fftPlacementMethod),
-    ofdmDecoder(params, ri, fic, msc),
+    ofdmDecoder(params, ri, fic, msc, qiProcessor),
     fft_handler(params.T_u),
     fft_buffer(fft_handler.getVector())
 {
@@ -247,30 +245,33 @@ void OFDMProcessor::run()
 
     try {
 
-        //Initing:
-        /// first, we need samples to get a reasonable sLevel
-        sLevel   = 0;
-        for (i = 0; i < T_F / 2; i ++) {
-            l1_norm(getSample (0));
+        // Initialising
+        // Firstly, we need samples to get a reasonable sLevel
+        sLevel = 0;
+        for (i = 0; i < params.T_F / 2; i++) {
+            // "T_F" == 96 ms
+            //l1_norm(getSample(0));
+            getSample(0);
         }
 notSynced:
         PROFILE(NotSynced);
-        if (scanMode && ++attempts > 5) {
+
+        if (++attempts > 5) {
             radioInterface.onSignalPresence(false);
-            scanMode  = false;
-            attempts  = 0;
+            if (scanMode) {
+                scanMode = false;
+            }
+            attempts = 0;
         }
-        syncBufferIndex  = 0;
-        currentStrength  = 0;
 
         //  read in T_s samples for a next attempt;
         syncBufferIndex = 0;
-        currentStrength  = 0;
-        for (i = 0; i < 50; i ++) {
-            DSPCOMPLEX sample         = getSample (0);
-            envBuffer [syncBufferIndex]   = l1_norm(sample);
-            currentStrength           += envBuffer [syncBufferIndex];
-            syncBufferIndex ++;
+        currentStrength = 0;
+        for (i = 0; i < 50; i++) {
+            DSPCOMPLEX sample = getSample(0);
+            envBuffer[syncBufferIndex] = l1_norm(sample);
+            currentStrength += envBuffer[syncBufferIndex];
+            syncBufferIndex++;
         }
         /**
          * We now have initial values for currentStrength (i.e. the sum
@@ -280,19 +281,18 @@ notSynced:
         /**
          * here we start looking for the null level, i.e. a dip
          */
-        counter  = 0;
+        counter = 0;
         radioInterface.onSyncChange(false);
         while (currentStrength / 50  > 0.50 * sLevel) {
-            DSPCOMPLEX sample =
-                getSample (coarseCorrector + fineCorrector);
-            envBuffer [syncBufferIndex] = l1_norm(sample);
+            DSPCOMPLEX sample = getSample(coarseCorrector + fineCorrector);
+            envBuffer[syncBufferIndex] = l1_norm(sample);
             //  update the levels
-            currentStrength += envBuffer [syncBufferIndex] -
-                envBuffer [(syncBufferIndex - 50) & syncBufferMask];
+            currentStrength += envBuffer[syncBufferIndex] -
+                envBuffer[(syncBufferIndex - 50) & syncBufferMask];
             syncBufferIndex = (syncBufferIndex + 1) & syncBufferMask;
-            counter ++;
-            if (counter > T_F) { // hopeless
-                //           fprintf (stderr, "%f %f\n", currentStrength / 50, sLevel);
+            counter++;
+            if (counter > params.T_F) { // hopeless
+                //fprintf (stderr, "%f %f\n", currentStrength / 50, sLevel);
                 goto notSynced;
             }
         }
@@ -310,9 +310,9 @@ notSynced:
             currentStrength += envBuffer [syncBufferIndex] -
                 envBuffer [(syncBufferIndex - 50) & syncBufferMask];
             syncBufferIndex = (syncBufferIndex + 1) & syncBufferMask;
-            counter   ++;
-            //
-            if (counter > T_null + 50) { // hopeless
+            counter++;
+
+            if (counter > params.T_null + 50) { // hopeless
                 std::clog << "ofdm-processor: " << "SyncOnEndNull failed" << std::endl;
                 goto notSynced;
             }
@@ -335,11 +335,9 @@ SyncOnPhase:
          * is part of the samples read.
          */
         getSamples(ofdmBuffer.data(), T_u, coarseCorrector + fineCorrector);
-        //
         /// and then, call upon the phase synchronizer to verify/compute
         /// the real "first" sample
-        startIndex = phaseRef.findIndex(ofdmBuffer.data(),
-                impulseResponseBuffer);
+        startIndex = phaseRef.findIndex(ofdmBuffer.data(), impulseResponseBuffer);
         PROFILE(FindIndex);
         radioInterface.onNewImpulseResponse(std::move(impulseResponseBuffer));
         impulseResponseBuffer.clear();
@@ -348,10 +346,11 @@ SyncOnPhase:
             std::clog << "ofdm-processor: " << "SyncOnPhase failed" << std::endl;
             goto notSynced;
         }
+
+        radioInterface.onSignalPresence(true);
+        attempts = 0;
         if (scanMode) {
-            radioInterface.onSignalPresence(true);
-            scanMode  = false;
-            attempts  = 0;
+            scanMode = false;
         }
 
         /**
@@ -359,7 +358,7 @@ SyncOnPhase:
          * used for synchronization for the PRS */
         memmove(ofdmBuffer.data(), &ofdmBuffer[startIndex],
                 (params.T_u - startIndex) * sizeof (DSPCOMPLEX));
-        ofdmBufferIndex  = params.T_u - startIndex;
+        ofdmBufferIndex = params.T_u - startIndex;
 
         //Symbol 0: Phase reference symbol symbol
         /**
@@ -435,9 +434,9 @@ SyncOnPhase:
         DSPCOMPLEX FreqCorr = DSPCOMPLEX(0, 0);
         for (int sym = 1; sym < params.L; sym ++) {
             auto& buf = allSymbols[sym];
-            buf.resize(T_s);
-            getSamples(buf.data(), T_s, coarseCorrector + fineCorrector);
-            for (int i = T_u; i < T_s; i ++)
+            buf.resize(params.T_s);
+            getSamples(buf.data(), params.T_s, coarseCorrector + fineCorrector);
+            for (int i = T_u; i < params.T_s; i ++)
                 FreqCorr += buf[i] * conj(buf[i - T_u]);
         }
 
@@ -454,13 +453,13 @@ SyncOnPhase:
          * OK,  here we are at the end of the frame
          * Assume everything went well and skip T_null samples
          */
-        syncBufferIndex  = 0;
-        currentStrength  = 0;
+        syncBufferIndex = 0;
+        currentStrength = 0;
 
         PROFILE(DecodeTII);
         // The NULL is interesting to save because it carries the TII.
-        std::vector<DSPCOMPLEX> nullSymbol(T_null);
-        getSamples(nullSymbol.data(), T_null, coarseCorrector + fineCorrector);
+        std::vector<DSPCOMPLEX> nullSymbol(params.T_null);
+        getSamples(nullSymbol.data(), params.T_null, coarseCorrector + fineCorrector);
         if (rro.decodeTII) {
             tiiDecoder.pushSymbols(nullSymbol, prs);
         }
@@ -473,7 +472,7 @@ SyncOnPhase:
          * samples ahead
          * Here we just check the fineCorrector
          */
-        counter  = 0;
+        counter = 0;
 
         if (fineCorrector > params.carrierDiff / 2) {
             coarseCorrector += params.carrierDiff;

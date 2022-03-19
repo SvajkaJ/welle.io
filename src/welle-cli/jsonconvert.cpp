@@ -208,6 +208,17 @@ static void to_json(nlohmann::json& j, const PeakJson& peak)
         {"value", 10.0f * log10(peak.value)}};
 }
 
+static void to_json(nlohmann::json& j, const dab_quality_indicators_t& qi)
+{
+    j = nlohmann::json{
+        {"snr", qi.snr},
+        {"ber", qi.ber},
+        {"power", qi.power},
+        {"fiber", qi.fiber},
+        {"signal", qi.signal},
+        {"sync", qi.sync}
+    };
+}
 
 static void to_json(nlohmann::json& j, const MuxJson& mux) {
     j = nlohmann::json{
@@ -217,7 +228,8 @@ static void to_json(nlohmann::json& j, const MuxJson& mux) {
         {"utctime", mux.utctime},
         {"messages", mux.messages},
         {"tii", mux.tii},
-        {"cir_peaks", mux.cir_peaks}
+        {"cir_peaks", mux.cir_peaks},
+        {"qi", mux.qi}
     };
 
     j["demodulator"]["fic"]["numcrcerrors"] = mux.demodulator_fic_numcrcerrors;
@@ -225,7 +237,6 @@ static void to_json(nlohmann::json& j, const MuxJson& mux) {
         std::chrono::duration_cast<std::chrono::milliseconds>(
                 mux.demodulator_timelastfct0frame.time_since_epoch()).count();
     j["demodulator"]["time_last_fct0_frame"] = timelastfct0_ms;
-    j["demodulator"]["snr"] = mux.demodulator_snr;
     j["demodulator"]["frequencycorrection"] = mux.demodulator_frequencycorrection;
 }
 

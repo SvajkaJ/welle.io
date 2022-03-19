@@ -92,13 +92,12 @@ void Viterbi::partab_init()
     }
 }
 
-int Viterbi::parity(int x)
+int parity(int x)
 {
     /* Fold down to one byte */
     x ^= (x >> 16);
     x ^= (x >> 8);
-    return Partab[x];
-    //  return parityb(x);
+    return Partab[x & 0xFF];
 }
 
 static inline
@@ -195,31 +194,45 @@ uint8_t getbit (uint8_t v, int32_t o)
     return  (v & maskTable[o]) ? 1 : 0;
 }
 
-//static
-//uint8_t getbit (uint8_t v, int32_t o) {
-//uint8_t   mask    = 1 << (7 - o);
-//  return  (v & mask) ? 1 : 0;
-//}
+/**
+ * Convolutionally encode data into binary symbols
+ * data     <->     input
+ * symbols  <->     output
+ * 
+ * Original creator: Copyright 1999 Phil Karn, KA9Q
+ * May be used under the terms of the GNU Public License
+ * 
+ * Integrated into Welle.io for monitoring purposes by Jakub Svajka
+ */
+void encode(
+    unsigned char *symbols,
+    unsigned char *data,
+    unsigned int nbytes,
+    unsigned int startstate,
+    unsigned int endstate)
+{
+    /* RATE=4 and K=7 is used in DAB (Rate 1/4 code) */
 
-// depends: POLYS, RATE, COMPUTETYPE
-//  encode was only used for testing purposes
-//void encode (/*const*/ unsigned char *bytes, COMPUTETYPE *symbols, int nbits) {
-//int   i, k;
-//int   polys[RATE] = POLYS;
-//int   sr = 0;
-//
-//// FIXME: this is slowish
-//// -- remember about the padding!
-//  for (i = 0; i < nbits + (K - 1); i++) {
-//     int b = bytes[i/8];
-//     int j = i % 8;
-//     int bit = (b >> (7-j)) & 1;
-//
-//     sr = (sr << 1) | bit;
-//     for (k = 0; k < RATE; k++)
-//        *(symbols++) = parity(sr & polys[k]);
-//  }
-//}
+    int i,j;
+    unsigned int encstate = startstate;
+    //int polys[RATE] = POLYS;
+    int polys[RATE] = { 0x6d, 0x4f, 0x53, 0x6d };
+
+    while(nbytes-- != 0) {
+        for(i = 7; i >= 0; i--) {
+            encstate = (encstate << 1) | ((*data >> i) & 1);
+            for(j = 0; j < RATE; j++)
+                *symbols++ = parity(encstate & polys[j]);
+        }
+        data++;
+    }
+    /* Flush out tail */
+    for(i = K - 2; i >= 0; i--) {
+        encstate = (encstate << 1) | ((endstate >> i) & 1);
+        for(j = 0; j < RATE; j++)
+            *symbols++ = parity(encstate & polys[j]);
+    }
+}
 
 //  Note that our DAB environment maps the softbits to -127 .. 127
 //  we have to map that onto 0 .. 255

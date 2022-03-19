@@ -43,11 +43,13 @@ OfdmDecoder::OfdmDecoder(
         const DABParams& p,
         RadioControllerInterface& mr,
         FicHandler& ficHandler,
-        MscHandler& mscHandler) :
+        MscHandler& mscHandler,
+        QIProcessor& qiProcessor) :
     params(p),
     radioInterface(mr),
     ficHandler(ficHandler),
     mscHandler(mscHandler),
+    qiProcessor(qiProcessor),
     pending_symbols(params.L),
     phaseReference(params.T_u),
     fft_handler(p.T_u),
@@ -148,16 +150,16 @@ void OfdmDecoder::processPRS()
             pending_symbols[0].data(),
             params.T_u * sizeof(DSPCOMPLEX));
     fft_handler.do_FFT ();
+
+    qiProcessor.onSpectrum(fft_buffer);
     /**
      * The SNR is determined by looking at a segment of bins
      * within the signal region and bits outside.
      * It is just an indication
      */
-    snr = 0.7 * snr + 0.3 * get_snr(fft_buffer, 1);
-    if (++snrCount > 10) {
-        radioInterface.onSNR(snr);
-        snrCount = 0;
-    }
+    qiProcessor.processSNR();
+    qiProcessor.processPower(0);
+
     /**
      * we are now in the frequency domain, and we keep the carriers
      * as coming from the FFT as phase reference.

@@ -58,6 +58,7 @@
 extern "C" {
 #include "various/wavfile.h"
 }
+#include "postgresinterface.h"
 
 #ifdef GITDESCRIBE
 #define VERSION GITDESCRIBE
@@ -176,8 +177,17 @@ class WavProgrammeHandler: public ProgrammeHandlerInterface {
 class RadioInterface : public RadioControllerInterface {
     public:
         virtual void onSNR(float /*snr*/) override { }
+        virtual void onBER(float /*ber*/) override { }
+        virtual void onPower(float /*power*/) override { }
+        virtual void onFIBER(float /*fiber*/) override { }
+        virtual dab_quality_indicators_t getQI(void) override
+        {
+            dab_quality_indicators_t qi;
+            return qi;
+        }
+
         virtual void onFrequencyCorrectorChange(int /*fine*/, int /*coarse*/) override { }
-        virtual void onSyncChange(char isSync) override { synced = isSync; }
+        virtual void onSyncChange(bool isSync) override { synced = isSync; }
         virtual void onSignalPresence(bool /*isSignal*/) override { }
         virtual void onServiceDetected(uint32_t sId) override
         {
@@ -407,7 +417,7 @@ options_t parse_cmdline(int argc, char **argv)
     options.rro.decodeTII = true;
 
     int opt;
-    while ((opt = getopt(argc, argv, "A:c:C:dDf:F:g:hp:Ps:Tt:uvw:")) != -1) {
+    while ((opt = getopt(argc, argv, "A:c:C:dDf:F:g:hp:Ps:Tt:uvw:I:")) != -1) {
         switch (opt) {
             case 'A':
                 options.antenna = optarg;
@@ -461,6 +471,9 @@ options_t parse_cmdline(int argc, char **argv)
                 break;
             case 'u':
                 options.rro.disableCoarseCorrector = true;
+                break;
+            case 'I':
+                options.rro.interval = std::atoi(optarg);
                 break;
             default:
                 cerr << "Unknown option. Use -h for help" << endl;
@@ -580,10 +593,12 @@ int main(int argc, char **argv)
             ds.num_decoders_in_carousel = options.num_decoders_in_carousel;
         }
         WebRadioInterface wri(*in, options.web_port, ds, options.rro);
+        PostgresInterface db(wri, options.rro.interval);
         wri.serve();
     }
     else {
         RadioReceiver rx(ri, *in, options.rro);
+        //PostgresInterface db(ri, options.rro.interval);
         if (options.decode_all_programmes) {
             FILE* fic_fd = fopen("dump.fic", "w");
 

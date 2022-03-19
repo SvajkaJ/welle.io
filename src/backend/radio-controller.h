@@ -75,6 +75,28 @@ struct mot_file_t {
 
 enum class message_level_t { Information, Error };
 
+/**
+ * SNR - Signal to Noise Ratio - the ratio between the power of a signal and the power of the background noise.
+ * 
+ * BER - Bit Error Ratio - the ratio between number of faulty bits and the total number of transferred bits during a studied time interval.
+ * 
+ * Power - RF power
+ * 
+ * FIBER - Fast Information Block Error Ratio - the ratio between number of faulty CRCs in FIB and the number of received FIBs during a studied time interval.
+ * 
+ * signal - if the dab signal is present
+ * 
+ * sync - if the welle is phase synchronised
+ */
+struct dab_quality_indicators_t {
+    float snr = -1;
+    float ber = -1;
+    float power = -1;
+    float fiber = -1;
+    bool signal = false;
+    bool sync = false;
+};
+
 /* Definition of the interface all radio controllers must implement.
  * The RadioController handles events that are common to all programmes
  * being listened to.
@@ -85,13 +107,25 @@ class RadioControllerInterface {
         /* Signal-to-Noise Ratio was calculated. snr is a value in dB. */
         virtual void onSNR(float snr) = 0;
 
+        /* Bit Error Ratio */
+        virtual void onBER(float ber) = 0;
+
+        /* Power Spectral Density */
+        virtual void onPower(float power) = 0;
+
+        /* Fast Information Block Error Ratio */
+        virtual void onFIBER(float fiber) = 0;
+
+        /* Getter for last quality indicators. */
+        virtual dab_quality_indicators_t getQI(void) = 0;
+
         /* The frequency corrector estimated a new correction. The frequency
          * correction consists of a coarse and a fine value, both having the
          * same units, measured in number of samples. */
         virtual void onFrequencyCorrectorChange(int fine, int coarse) = 0;
 
         /* Indicate if receive signal synchronisation was acquired or lost. */
-        virtual void onSyncChange(char isSync) = 0;
+        virtual void onSyncChange(bool isSync) = 0;
 
         /* Indicate if a signal is suspected on the currently tuned frequency.
          * This is useful to accelerate the scan. */

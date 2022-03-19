@@ -49,10 +49,11 @@ uint8_t PI_X [24] = {
   *     puncturing.
   *     The data is sent through to the fic processor
   */
-FicHandler::FicHandler(RadioControllerInterface& mr) :
+FicHandler::FicHandler(RadioControllerInterface& mr, QIProcessor& qiProcessor) :
     Viterbi(768),
     fibProcessor(mr),
     myRadioInterface(mr),
+    qiProcessor(qiProcessor),
     bitBuffer_out(768),
     ofdm_input(2304),
     viterbiBlock(3072 + 24)
@@ -117,8 +118,14 @@ void FicHandler::processFicBlock(const softbit_t *data, int16_t blkno)
 
     if ((1 <= blkno) && (blkno <= 3)) {
         for (int i = 0; i < bitsperBlock; i ++) {
-            ofdm_input[index ++] = data[i];
+            hardbits[index] = (data[i] > 0) ? 1 : 0;
+            ofdm_input[index] = data[i];
+            index++;
             if (index >= 2304) {
+                // In order to be able to calculate BER
+                // we have to convert ficblock and then 
+                // save original FIC before error correction
+                qiProcessor.onUncorrectedData(hardbits, ficno);
                 processFicInput(ofdm_input.data(), ficno);
                 index = 0;
                 ficno++;
@@ -141,7 +148,7 @@ void FicHandler::processFicBlock(const softbit_t *data, int16_t blkno)
  * In the next coding step, we will combine this function with the
  * one above
  */
-void FicHandler::processFicInput(const softbit_t *ficblock, int16_t ficno)
+void FicHandler::processFicInput(const softbit_t *ficblock, uint8_t ficno)
 {
     int16_t input_counter = 0;
     int16_t i, k;
@@ -196,6 +203,9 @@ void FicHandler::processFicInput(const softbit_t *ficblock, int16_t ficno)
      */
     deconvolve(viterbiBlock.data(), bitBuffer_out.data());
 
+    // Now we save error corrected data
+    qiProcessor.onCorrectedData(bitBuffer_out.data(), ficno);
+
     /**
      * if everything worked as planned, we now have a
      * 768 bit vector containing three FIB's
@@ -214,9 +224,12 @@ void FicHandler::processFicInput(const softbit_t *ficblock, int16_t ficno)
      */
     for (i = ficno * 3; i < ficno * 3 + 3; i ++) {
         uint8_t *p = &bitBuffer_out[(i % 3) * 256];
-        const bool crcvalid = check_CRC_bits(p, 256);
-        myRadioInterface.onFIBDecodeSuccess(crcvalid, p);
-        if (crcvalid) {
+        const bool crcValid = check_CRC_bits(p, 256);
+
+        qiProcessor.onFIB(crcValid);
+
+        myRadioInterface.onFIBDecodeSuccess(crcValid, p);
+        if (crcValid) {
             fibProcessor.processFIB(p, ficno);
 
             if (fic_decode_success_ratio < 10) {
@@ -226,6 +239,14 @@ void FicHandler::processFicInput(const softbit_t *ficblock, int16_t ficno)
         else if (fic_decode_success_ratio > 0) {
             fic_decode_success_ratio--;
         }
+    }
+
+    // Every increment of ficno means 3 FIBs have been processed
+    if (ficno == 3) {
+        // We have received 12 FIBs when ficno equals 3
+        // Once we parse all 12 FIBs we calculate error rate
+        qiProcessor.processBER();
+        qiProcessor.processFIBER();
     }
 }
 

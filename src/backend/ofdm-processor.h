@@ -47,6 +47,7 @@
 #include "radio-receiver-options.h"
 #include "fic-handler.h"
 #include "msc-handler.h"
+#include "qi-processor.h"
 
 class OFDMProcessor
 {
@@ -57,6 +58,7 @@ class OFDMProcessor
                 RadioControllerInterface& ri,
                 MscHandler& msc,
                 FicHandler& fic,
+                QIProcessor& qiProcessor,
                 RadioReceiverOptions rro);
         ~OFDMProcessor();
 
@@ -83,10 +85,7 @@ class OFDMProcessor
 
         std::atomic<bool> running = ATOMIC_VAR_INIT(false);
 
-        int32_t T_null;
         int32_t T_u;
-        int32_t T_s;
-        int32_t T_F;
         int32_t coarseSyncCounter = 0;
 
         std::vector<DSPCOMPLEX> oscillatorTable;

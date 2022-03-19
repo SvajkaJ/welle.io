@@ -103,6 +103,9 @@ static const char* http_contenttype_js =
 static const char* http_contenttype_html =
         "Content-Type: text/html; charset=utf-8\r\n";
 
+static const char* http_cors =
+        "Access-Control-Allow-Origin: *\r\n";
+
 static const char* http_nocache = "Cache-Control: no-cache\r\n";
 
 static string to_hex(uint32_t value, int width)
@@ -118,6 +121,7 @@ static bool send_http_response(Socket& s, const string& statuscode,
         const string& data, const string& content_type = http_contenttype_text) {
     string headers = statuscode;
     headers += content_type;
+    headers += http_cors;
     headers += http_nocache;
     headers += "\r\n";
     headers += data;
@@ -271,12 +275,15 @@ void WebRadioInterface::retune(const std::string& channel)
         {
             lock_guard<mutex> data_lock(data_mut);
             last_dateTime = {};
-            last_snr = 0;
+            last_qi.snr = -1;
+            last_qi.ber = -1;
+            last_qi.power = -1;
+            last_qi.fiber = -1;
+            last_qi.signal = false;
+            last_qi.sync = false;
             last_fine_correction = 0;
             last_coarse_correction = 0;
         }
-
-        synced = false;
 
         {
             lock_guard<mutex> fib_lock(fib_mut);
@@ -772,7 +779,8 @@ bool WebRadioInterface::send_mux_json(Socket& s)
 
         pending_messages.clear();
 
-        mux_json.demodulator_snr = last_snr;
+        mux_json.qi = last_qi;
+
         mux_json.demodulator_frequencycorrection = last_fine_correction + last_coarse_correction;
         mux_json.demodulator_timelastfct0frame = rx->getReceiverStats().timeLastFCT0Frame;
 
@@ -995,10 +1003,10 @@ static bool send_fft_data(Socket& s, DSPCOMPLEX *spectrumBuffer, size_t T_u)
     // Shift FFT samples
     const size_t half_Tu = T_u / 2;
     for (size_t i = 0; i < half_Tu; i++) {
-        spectrum[i] = abs(spectrumBuffer[i + half_Tu]);
+        spectrum[i] = get_db_over_256(abs(spectrumBuffer[i + half_Tu]));
     }
     for (size_t i = half_Tu; i < T_u; i++) {
-        spectrum[i] = abs(spectrumBuffer[i - half_Tu]);
+        spectrum[i] = get_db_over_256(abs(spectrumBuffer[i - half_Tu]));
     }
 
     if (not send_http_response(s, http_ok, "", http_contenttype_data)) {
@@ -1444,7 +1452,31 @@ void WebRadioInterface::serve()
 void WebRadioInterface::onSNR(float snr)
 {
     lock_guard<mutex> lock(data_mut);
-    last_snr = snr;
+    last_qi.snr = snr;
+}
+
+void WebRadioInterface::onBER(float ber)
+{
+    lock_guard<mutex> lock(data_mut);
+    last_qi.ber = ber;
+}
+
+void WebRadioInterface::onPower(float power)
+{
+    lock_guard<mutex> lock(data_mut);
+    last_qi.power = power;
+}
+
+void WebRadioInterface::onFIBER(float fiber)
+{
+    lock_guard<mutex> lock(data_mut);
+    last_qi.fiber = fiber;
+}
+
+dab_quality_indicators_t WebRadioInterface::getQI(void)
+{
+    lock_guard<mutex> lock(data_mut);
+    return last_qi;
 }
 
 void WebRadioInterface::onFrequencyCorrectorChange(int fine, int coarse)
@@ -1454,12 +1486,18 @@ void WebRadioInterface::onFrequencyCorrectorChange(int fine, int coarse)
     last_coarse_correction = coarse;
 }
 
-void WebRadioInterface::onSyncChange(char isSync)
+void WebRadioInterface::onSyncChange(bool isSync)
 {
-    synced = isSync;
+    lock_guard<mutex> lock(data_mut);
+    last_qi.sync = isSync;
 }
 
-void WebRadioInterface::onSignalPresence(bool /*isSignal*/) { }
+void WebRadioInterface::onSignalPresence(bool isSignal)
+{
+    lock_guard<mutex> lock(data_mut);
+    last_qi.signal = isSignal;
+}
+
 void WebRadioInterface::onServiceDetected(uint32_t /*sId*/) { }
 void WebRadioInterface::onNewEnsemble(uint16_t /*eId*/) { }
 void WebRadioInterface::onSetEnsembleLabel(DabLabel& /*label*/) { }

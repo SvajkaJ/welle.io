@@ -41,6 +41,7 @@
 #include "fic-handler.h"
 #include "msc-handler.h"
 #include "ofdm-processor.h"
+#include "qi-processor.h"
 
 const char* fftPlacementMethodToString(FFTPlacementMethod fft_placement);
 const char* freqSyncMethodToString(FreqsyncMethod method);
@@ -109,7 +110,7 @@ class RadioReceiver {
                 bool unique);
 
         DABParams params; // Defaults to TM1 parameters
-
+        QIProcessor qiProcessor;
         MscHandler mscHandler;
         FicHandler ficHandler;
         OFDMProcessor ofdmProcessor;

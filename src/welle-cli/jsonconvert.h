@@ -136,7 +136,7 @@ struct MuxJson {
     UTCJson utctime;
     std::vector<std::string> messages;
 
-    double demodulator_snr = 0.0;
+    dab_quality_indicators_t qi;
     double demodulator_frequencycorrection = 0.0;
     std::chrono::system_clock::time_point demodulator_timelastfct0frame;
 

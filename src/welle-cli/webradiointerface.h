@@ -83,8 +83,13 @@ class WebRadioInterface : public RadioControllerInterface {
         void serve();
 
         virtual void onSNR(float snr) override;
+        virtual void onBER(float ber) override;
+        virtual void onPower(float power) override;
+        virtual void onFIBER(float fiber) override;
+        virtual dab_quality_indicators_t getQI(void) override;
+
         virtual void onFrequencyCorrectorChange(int fine, int coarse) override;
-        virtual void onSyncChange(char isSync) override;
+        virtual void onSyncChange(bool isSync) override;
         virtual void onSignalPresence(bool isSignal) override;
         virtual void onServiceDetected(uint32_t sId) override;
         virtual void onNewEnsemble(uint16_t eId) override;
@@ -165,8 +170,9 @@ class WebRadioInterface : public RadioControllerInterface {
         DecodeSettings decode_settings;
 
         mutable std::mutex data_mut;
-        bool synced = 0;
-        int last_snr = 0;
+
+        dab_quality_indicators_t last_qi;
+
         int last_fine_correction = 0;
         int last_coarse_correction = 0;
         dab_date_time_t last_dateTime;

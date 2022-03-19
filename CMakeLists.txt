@@ -82,6 +82,9 @@ find_package(Threads REQUIRED)
 find_package(Faad REQUIRED)
 find_package(MPG123 REQUIRED)
 
+find_library(PQXX_LIB pqxx REQUIRED)
+find_library(PQ_LIB pq REQUIRED)
+
 if (RTLSDR)
     find_package(LibRTLSDR REQUIRED)
 endif()
@@ -109,6 +112,8 @@ include_directories(
     ${FAAD_INCLUDE_DIRS}
     ${LIBRTLSDR_INCLUDE_DIRS}
     ${SoapySDR_INCLUDE_DIRS}
+    ${PQXX_INCLUDE_DIR}
+    ${PQ_INCLUDE_DIR}
 )
 
 set(backend_sources
@@ -131,6 +136,7 @@ set(backend_sources
     src/backend/phasetable.cpp
     src/backend/tii-decoder.cpp
     src/backend/protTables.cpp
+    src/backend/qi-processor.cpp
     src/backend/radio-receiver.cpp
     src/backend/tools.cpp
     src/backend/uep-protection.cpp
@@ -166,6 +172,7 @@ set(welle_cli_sources
     src/welle-cli/jsonconvert.cpp
     src/welle-cli/webprogrammehandler.cpp
     src/welle-cli/tests.cpp
+    src/welle-cli/postgresinterface.cpp
 )
 
 set(input_sources
@@ -230,6 +237,8 @@ if(BUILD_WELLE_IO)
       ${FAAD_LIBRARIES}
       ${SoapySDR_LIBRARIES}
       ${MPG123_LIBRARIES}
+      ${PQXX_LIB}
+      ${PQ_LIB}
       Threads::Threads
       Qt5::Core Qt5::Widgets Qt5::Multimedia Qt5::Charts Qt5::Qml Qt5::Quick Qt5::QuickControls2 Qt5::DBus
     )
@@ -285,6 +294,8 @@ if(BUILD_WELLE_CLI)
       ${LAME_LIBRARIES}
       ${SoapySDR_LIBRARIES}
       ${MPG123_LIBRARIES}
+      ${PQXX_LIB}
+      ${PQ_LIB}
       Threads::Threads
     )
 

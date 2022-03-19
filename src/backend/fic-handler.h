@@ -34,11 +34,12 @@
 #include "viterbi.h"
 #include "fib-processor.h"
 #include "radio-controller.h"
+#include "qi-processor.h"
 
 class FicHandler: public Viterbi
 {
     public:
-        FicHandler(RadioControllerInterface& mr);
+        FicHandler(RadioControllerInterface& mr, QIProcessor& qiProcessor);
         void    processFicBlock(const softbit_t *data, int16_t blkno);
         void    setBitsperBlock(int16_t b);
         void    clearEnsemble();
@@ -48,7 +49,8 @@ class FicHandler: public Viterbi
 
     private:
         RadioControllerInterface& myRadioInterface;
-        void        processFicInput(const softbit_t *ficblock, int16_t ficno);
+        QIProcessor& qiProcessor;
+        void        processFicInput(const softbit_t *ficblock, uint8_t ficno);
         const int8_t *PI_15;
         const int8_t *PI_16;
         std::vector<uint8_t> bitBuffer_out;
@@ -56,8 +58,10 @@ class FicHandler: public Viterbi
         std::vector<softbit_t> viterbiBlock;
         int16_t     index = 0;
         int16_t     bitsperBlock = 2 * 1536;
-        int16_t     ficno = 0;
+        uint8_t     ficno = 0;
         uint8_t     PRBS[768];
+
+        uint8_t     hardbits[2304];
 
         // Saturating up/down-counter in range [0, 10] corresponding
         // to the number of FICs with correct CRC

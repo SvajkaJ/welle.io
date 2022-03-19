@@ -37,6 +37,7 @@
 #include "radio-controller.h"
 #include "fic-handler.h"
 #include "msc-handler.h"
+#include "qi-processor.h"
 
 class OfdmDecoder
 {
@@ -45,7 +46,8 @@ class OfdmDecoder
                 const DABParams& p,
                 RadioControllerInterface& mr,
                 FicHandler& ficHandler,
-                MscHandler& mscHandler);
+                MscHandler& mscHandler,
+                QIProcessor& qiProcessor);
         ~OfdmDecoder();
         void    pushAllSymbols(std::vector<std::vector<DSPCOMPLEX> >&& sym);
         void    reset();
@@ -56,6 +58,7 @@ class OfdmDecoder
         RadioControllerInterface& radioInterface;
         FicHandler& ficHandler;
         MscHandler& mscHandler;
+        QIProcessor& qiProcessor;
         std::atomic<bool> running = ATOMIC_VAR_INIT(false);
 
         std::condition_variable pending_symbols_cv;
@@ -75,8 +78,8 @@ class OfdmDecoder
         FrequencyInterleaver interleaver;
 
         std::vector<softbit_t> ibits;
-        int16_t snrCount = 0;
-        float snr = 0;
+        //int16_t snrCount = 0;
+        //float snr = 0;
 
         const double mer_alpha = 1e-7;
         std::atomic<double> mer = ATOMIC_VAR_INIT(0.0);

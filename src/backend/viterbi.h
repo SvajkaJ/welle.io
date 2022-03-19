@@ -35,6 +35,8 @@ struct v {
     decision_t *decisions;   /* decisions */
 };
 
+void encode(unsigned char *symbols, unsigned char *data, unsigned int nbytes, unsigned int startstate, unsigned int endstate);
+
 class Viterbi
 {
     public:
@@ -47,10 +49,7 @@ class Viterbi
     private:
         struct v    vp;
         COMPUTETYPE Branchtab   [NUMSTATES / 2 * RATE] __attribute__ ((aligned (16)));
-        //  int parityb     (uint8_t);
-        int parity(int x);
         void partab_init (void);
-        //  uint8_t Partab  [256];
         void init_viterbi(struct v *, int16_t starting_state);
 
         void update_viterbi_blk_GENERIC( struct v *vp,
