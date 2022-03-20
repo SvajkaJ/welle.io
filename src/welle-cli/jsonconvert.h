@@ -120,7 +120,9 @@ struct UTCJson {
     int day = 0;
     int hour = 0;
     int minutes = 0;
-    double lto = 0.0;
+    int seconds = 0;
+    int hourOffset = 0;
+    int minuteOffset = 0;
 };
 
 struct PeakJson {

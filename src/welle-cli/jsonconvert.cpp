@@ -187,7 +187,9 @@ static void to_json(nlohmann::json& j, const UTCJson& u) {
         {"day", u.day},
         {"hour", u.hour},
         {"minutes", u.minutes},
-        {"lto", u.lto}
+        {"seconds", u.seconds},
+        {"hourOffset", u.hourOffset},
+        {"minuteOffset", u.minuteOffset}
     };
 }
 

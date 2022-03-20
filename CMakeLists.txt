@@ -212,7 +212,7 @@ endif()
 
 if(NOT GIT_DESCRIBE)
   execute_process(
-    COMMAND git describe --tags --long
+    COMMAND git rev-parse --short HEAD
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     OUTPUT_VARIABLE GIT_DESCRIBE
     OUTPUT_STRIP_TRAILING_WHITESPACE

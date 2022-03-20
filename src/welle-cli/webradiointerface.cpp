@@ -748,7 +748,9 @@ bool WebRadioInterface::send_mux_json(Socket& s)
         mux_json.utctime.day = last_dateTime.day;
         mux_json.utctime.hour = last_dateTime.hour;
         mux_json.utctime.minutes = last_dateTime.minutes;
-        mux_json.utctime.lto = last_dateTime.hourOffset + ((double)last_dateTime.minuteOffset / 30.0);
+        mux_json.utctime.seconds = last_dateTime.seconds;
+        mux_json.utctime.hourOffset = last_dateTime.hourOffset;
+        mux_json.utctime.minuteOffset = last_dateTime.minuteOffset;
 
         for (const auto& m : pending_messages) {
             using namespace chrono;
@@ -1105,6 +1107,7 @@ bool WebRadioInterface::send_channel(Socket& s)
 
         string response = http_ok;
         response += http_contenttype_text;
+        response += http_cors;
         response += http_nocache;
         response += "\r\n";
         response += chan;
@@ -1117,6 +1120,7 @@ bool WebRadioInterface::send_channel(Socket& s)
     catch (const out_of_range& e) {
         string response = http_500;
         response += http_contenttype_text;
+        response += http_cors;
         response += http_nocache;
         response += "\r\n";
         response += "Error: ";

@@ -273,7 +273,7 @@ void TIIDecoder::run()
             else
                 return ix - 2048; };
 
-        const float threshold_factor = 0.4f;
+        const float threshold_factor = 0.8f;
 
         vector<carrier_t> carriers;
         for (size_t i = 0; i < 192; i++) {
