@@ -151,7 +151,7 @@ void QIProcessor::processBER()
  */
 void QIProcessor::processPower(uint8_t method)
 {
-    float rms = 0.0;
+    float x = 0.0;
     const float smoothing_factor_power = 0.35;
 
     int16_t low = 0;
@@ -159,9 +159,9 @@ void QIProcessor::processPower(uint8_t method)
 
     // Calculate average RF power
     for (int16_t i = low; i < high; i++) {
-        rms += spectrum[i];
+        x += spectrum[i];
     }
-    rms = rms / (float)(high - low);
+    x = x / (float)(high - low);
 
     /*
     // spectrum is not shifted
@@ -169,9 +169,8 @@ void QIProcessor::processPower(uint8_t method)
     std::cout << "signal: " << spectrum[0] << std::endl;
     */
 
-    const float dB_power = get_db_over_256(rms);   // dBV
-    const float dBm_power = dB_power + 60;         // dBmV
-    smoothed_power = smoothing_factor_power * dBm_power + (1 - smoothing_factor_power) * smoothed_power;
+    const float dB_power = get_db_over_256(x);   // dBs (sample)
+    smoothed_power = smoothing_factor_power * dB_power + (1 - smoothing_factor_power) * smoothed_power;
 
     rci.onPower(smoothed_power);
 }
