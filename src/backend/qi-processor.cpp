@@ -77,13 +77,14 @@ void QIProcessor::processSNR()
     float noise = 0, signal = 0;
     const auto T_u = params.T_u;
     const auto K = params.K;
-    int16_t low = (params.T_u - params.K) / 2;
-    int16_t high = params.K + low;
+    int16_t low = (params.T_u - params.K) / 2;    // 256th carrier
+    int16_t high = params.K + low;                // 1792th carrier
+    int16_t x = low / 4;                          // 64
 
-    for (i = 70; i < low - 20; i ++) // low - 90 samples
+    for (i = x; i < low - x; i++) // 128 samples
         noise += spectrum[(T_u / 2 + i) % T_u];
 
-    for (i = high + 20; i < high + 120; i ++) // 100 samples
+    for (i = high + x; i < T_u - x; i++) // 128 samples
         noise += spectrum[(T_u / 2 + i) % T_u];
 
     for (i = T_u / 2 - K / 4;  i < T_u / 2 + K / 4; i ++)
@@ -95,12 +96,13 @@ void QIProcessor::processSNR()
     // value equal to 0 is also a valid signal but log(0) is undefined
     // and that is why there is +1 => mapped to 1..256
     const float dB_signal = get_db_over_256(signal / (float)(K / 2));
-    const float dB_noise = get_db_over_256(noise / (float)(low - 90 + 100));
+    const float dB_noise = get_db_over_256(noise / (float)(256));
     const float dB_snr = dB_signal - dB_noise;
     const float smoothing_factor_snr = 0.35;
 
     smoothed_snr = smoothing_factor_snr * dB_snr + (1 - smoothing_factor_snr) * smoothed_snr;
 
+    // rci: Radio Controller Interface
     rci.onSNR(smoothed_snr);
 }
 
@@ -141,6 +143,7 @@ void QIProcessor::processBER()
 
     smoothed_ber = smoothing_factor_ber * ber + (1 - smoothing_factor_ber) * smoothed_ber;
 
+    // rci: Radio Controller Interface
     rci.onBER(smoothed_ber);
 }
 
@@ -172,6 +175,7 @@ void QIProcessor::processPower(uint8_t method)
     const float dB_power = get_db_over_256(x);   // dBs (sample)
     smoothed_power = smoothing_factor_power * dB_power + (1 - smoothing_factor_power) * smoothed_power;
 
+    // rci: Radio Controller Interface
     rci.onPower(smoothed_power);
 }
 
